@@ -10,9 +10,11 @@ from constants import (
 
 # Default gene values (baseline, unevoled colony)
 DEFAULT_GENES = {
-    'sensitivity': 1.0,  # pheromone detection multiplier
-    'speed':       1.0,  # movement speed multiplier
-    'boldness':    0.5,  # 0=cautious trail-follower, 1=bold explorer
+    'sensitivity':       1.0,  # pheromone detection multiplier
+    'speed':             1.0,  # movement speed multiplier
+    'boldness':          0.5,  # 0=cautious trail-follower, 1=bold explorer
+    'lifespan':          1.0,  # multiplier for max energy before starvation
+    'energy_efficiency': 1.0,  # divisor for energy drain rate
 }
 
 

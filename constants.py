@@ -13,6 +13,7 @@ ANT_COUNT   = 10          # initial worker cohort size
 ANT_COUNT_MAX = 40        # hard ceiling on colony size
 FOOD_COUNT  = 5
 FOOD_RADIUS = 20
+FOOD_START_AMOUNT = 10    # Finite supply per node
 
 # ── Queen ─────────────────────────────────────────────────────────────────────
 QUEEN_ENERGY_MAX      = 200.0
@@ -27,6 +28,7 @@ GENE_MAX              = 1.5
 ANT_SPEED          = 2.0   # base px/frame; multiplied by genes['speed']
 ANT_ENERGY_MAX     = 100.0
 ANT_ENERGY_DRAIN   = 0.05  # 2000 frames to die; plenty of time to find food
+ANT_ENERGY_GAIN    = 2.0   # energy regenerated per frame when carrying food
 ANT_VISION_RANGE   = 100   # base px; multiplied by genes['sensitivity']
 WANDER_TURN_MIN    = 20    # frames before next random direction change
 WANDER_TURN_MAX    = 40
