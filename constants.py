@@ -16,7 +16,8 @@ FOOD_RADIUS = 20
 # ── Ant ───────────────────────────────────────────────────────────────────────
 ANT_SPEED          = 2.0
 ANT_ENERGY_MAX     = 100.0
-ANT_ENERGY_DRAIN   = 0.5
+ANT_ENERGY_DRAIN   = 0.2   # 500 frames to die; ~300px round-trip at speed 2
+ANT_RESPAWN_RATE   = 1     # new ant spawned at nest every N frames when colony < ANT_COUNT
 ANT_VISION_RANGE   = 100
 WANDER_TURN_MIN    = 20   # frames before next random direction change
 WANDER_TURN_MAX    = 40

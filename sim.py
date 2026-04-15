@@ -4,7 +4,7 @@ import random
 from ant import Ant
 from constants import (
     ANT_COUNT, FOOD_COUNT, FOOD_RADIUS, NEST_POS, NEST_RADIUS,
-    ANT_ENERGY_MAX,
+    ANT_ENERGY_MAX, ANT_RESPAWN_RATE,
     PHEROMONE_GRID_WIDTH, PHEROMONE_GRID_HEIGHT,
     PHEROMONE_DECAY, PHEROMONE_THRESHOLD,
     WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -69,7 +69,11 @@ class Simulation:
         # 6. Remove dead ants
         self.ants = [a for a in self.ants if a.is_alive()]
 
-        # 7. Respawn food if all gone
+        # 7. Respawn ants at nest to maintain colony size
+        if self.frame % ANT_RESPAWN_RATE == 0 and len(self.ants) < ANT_COUNT:
+            self.ants.append(Ant(*self.nest_pos))
+
+        # 8. Respawn food if all gone
         if not self.food_sources:
             self.food_sources = _spawn_food_sources(FOOD_COUNT)
 
