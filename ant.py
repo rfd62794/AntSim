@@ -91,10 +91,10 @@ class Ant:
                 my_gy = max(0, min(PHEROMONE_GRID_HEIGHT - 1, my_gy))
                 phero_strength = pheromone_grid[my_gy][my_gx]
 
-                # HIGH sensitivity ants follow trails more strictly
-                if phero_strength > 20 * self.genes['sensitivity']:
+                # HIGH sensitivity ants follow trails more strictly (only follow strong trails > 50)
+                if phero_strength > 50 * self.genes['sensitivity']:
                     self.state = "follow_pheromone"
-                elif phero_strength > 5:
+                elif phero_strength > 20:
                     if random.random() < self.genes['sensitivity'] and random.random() >= self.genes['boldness']:
                         self.state = "follow_pheromone"
                     else:
