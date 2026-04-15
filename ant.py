@@ -1,4 +1,4 @@
-# ant.py — Ant agent with a 4-state FSM
+# ant.py — Ant agent with a 4-state FSM + gene-driven behaviour
 import math
 import random
 from constants import (
@@ -12,6 +12,13 @@ from constants import (
     PHEROMONE_GRID_WIDTH, PHEROMONE_GRID_HEIGHT,
 )
 
+# Default genes for ants created without a Queen (e.g., headless tests)
+_DEFAULT_GENES = {
+    'sensitivity': 1.0,
+    'speed':       1.0,
+    'boldness':    0.5,
+}
+
 
 def _angle_to_vec(angle: float):
     """Convert a radian angle to a unit (dx, dy) vector."""
@@ -19,18 +26,36 @@ def _angle_to_vec(angle: float):
 
 
 class Ant:
-    """Single ant agent.  States: wander | follow_pheromone | seek_food | return_nest"""
+    """
+    Single ant agent.
 
-    def __init__(self, x: float, y: float):
+    Genes (all multiplicative scalars, range 0.5–1.5):
+      sensitivity  — scales pheromone detect range
+      speed        — scales movement px/frame
+      boldness     — [0,1] chance to keep wandering instead of following trail
+    """
+
+    def __init__(self, x: float, y: float,
+                 genes: dict | None = None,
+                 queen_id: int | None = None):
         self.x = x
         self.y = y
         angle = random.uniform(0, math.tau)
-        self.vx, self.vy = _angle_to_vec(angle)
-        self.energy: float   = ANT_ENERGY_MAX
-        self.carrying_food   = False
-        self.state           = "wander"
-        self._wander_timer   = random.randint(WANDER_TURN_MIN, WANDER_TURN_MAX)
-        self._wander_angle   = angle
+        self.vx, self.vy  = _angle_to_vec(angle)
+        self.energy: float = ANT_ENERGY_MAX
+        self.carrying_food = False
+        self.state         = "wander"
+        self.queen_id      = queen_id           # lineage tracking
+        self._wander_timer = random.randint(WANDER_TURN_MIN, WANDER_TURN_MAX)
+        self._wander_angle = angle
+
+        # Genes — copy so mutations don't alias the Queen's dict
+        self.genes = dict(genes) if genes is not None else dict(_DEFAULT_GENES)
+
+        # Derived per-ant constants (computed once at birth)
+        self.actual_speed       = ANT_SPEED          * self.genes['speed']
+        self.phero_detect_range = PHEROMONE_DETECT_RANGE * self.genes['sensitivity']
+        self.vision_range       = ANT_VISION_RANGE   * self.genes['sensitivity']
 
     # ──────────────────────────────────────────────────────────────────────────
     # Public API
@@ -47,8 +72,14 @@ class Ant:
         else:
             phero_dir = self._sample_pheromone(pheromone_grid)
             food_dir  = self._nearest_food_dir(food_sources)
+
             if phero_dir is not None:
-                self.state = "follow_pheromone"
+                # Boldness: high-boldness ants may ignore trails and keep exploring
+                if random.random() < self.genes['boldness']:
+                    # Bold ant wanders even if there's pheromone nearby
+                    self.state = "wander"
+                else:
+                    self.state = "follow_pheromone"
             elif food_dir is not None:
                 self.state = "seek_food"
             else:
@@ -70,9 +101,9 @@ class Ant:
             if dist > 0:
                 self._steer(dx / dist, dy / dist)
 
-        # Apply velocity
-        self.x += self.vx * ANT_SPEED
-        self.y += self.vy * ANT_SPEED
+        # Apply velocity — speed scaled by gene
+        self.x += self.vx * self.actual_speed
+        self.y += self.vy * self.actual_speed
         self._clamp_to_bounds()
 
         # ── Energy ───────────────────────────────────────────────────────────
@@ -136,15 +167,14 @@ class Ant:
 
     def _sample_pheromone(self, pheromone_grid: list):
         """
-        Look at grid cells within PHEROMONE_DETECT_RANGE.
-        Return (dx, dy) unit vector toward strongest cell, or None.
+        Look at grid cells within phero_detect_range (gene-scaled).
+        Return (dx, dy) toward the strongest cell, or None.
         """
         best_val  = PHEROMONE_THRESHOLD
         best_dx   = None
         best_dy   = None
-        # Grid search window in cell units
-        radius_cells_x = int(PHEROMONE_DETECT_RANGE / CELL_W) + 1
-        radius_cells_y = int(PHEROMONE_DETECT_RANGE / CELL_H) + 1
+        radius_cells_x = int(self.phero_detect_range / CELL_W) + 1
+        radius_cells_y = int(self.phero_detect_range / CELL_H) + 1
         my_gx = int(self.x / CELL_W)
         my_gy = int(self.y / CELL_H)
         for gy in range(max(0, my_gy - radius_cells_y),
@@ -158,7 +188,7 @@ class Ant:
                 cy = (gy + 0.5) * CELL_H
                 dx, dy = cx - self.x, cy - self.y
                 dist = math.hypot(dx, dy)
-                if dist <= PHEROMONE_DETECT_RANGE:
+                if dist <= self.phero_detect_range:
                     best_val = val
                     best_dx  = dx
                     best_dy  = dy
@@ -168,10 +198,10 @@ class Ant:
 
     def _nearest_food_dir(self, food_sources: list):
         """
-        Scan food sources within ANT_VISION_RANGE.
-        Return (dx, dy) toward closest one, or None.
+        Scan food sources within vision_range (gene-scaled).
+        Return (dx, dy) toward the closest one, or None.
         """
-        best_dist = ANT_VISION_RANGE
+        best_dist = self.vision_range
         best_dx   = None
         best_dy   = None
         for (fx, fy, _amount) in food_sources:

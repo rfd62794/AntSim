@@ -2,9 +2,12 @@
 import math
 import random
 from ant import Ant
+from queen import Queen
 from constants import (
-    ANT_COUNT, FOOD_COUNT, FOOD_RADIUS, NEST_POS, NEST_RADIUS,
-    ANT_ENERGY_MAX, ANT_RESPAWN_RATE,
+    ANT_COUNT, ANT_COUNT_MAX,
+    FOOD_COUNT, FOOD_RADIUS, NEST_POS, NEST_RADIUS,
+    ANT_ENERGY_MAX,
+    QUEEN_REPRO_COST, QUEEN_REPRO_INTERVAL,
     PHEROMONE_GRID_WIDTH, PHEROMONE_GRID_HEIGHT,
     PHEROMONE_DECAY, PHEROMONE_THRESHOLD,
     WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -31,14 +34,23 @@ class Simulation:
     """Owns all simulation state.  Call update() once per frame."""
 
     def __init__(self):
-        self.nest_pos     = NEST_POS
-        self.ants         = [Ant(*NEST_POS) for _ in range(ANT_COUNT)]
+        self.nest_pos    = NEST_POS
+        self.queen       = Queen(*NEST_POS)
         self.food_sources = _spawn_food_sources(FOOD_COUNT)
+
         # 2-D list [row][col] of pheromone strengths (0-255)
         self.pheromone_grid = [[0.0] * PHEROMONE_GRID_WIDTH
                                for _ in range(PHEROMONE_GRID_HEIGHT)]
+
         self.food_collected = 0
+        self.food_storage   = 0   # food units banked in the nest (fuels reproduction)
         self.frame          = 0
+
+        # Spawn initial worker cohort — inherit Queen's base genes directly
+        self.ants = [
+            Ant(*NEST_POS, genes=dict(self.queen.genes), queen_id=id(self.queen))
+            for _ in range(ANT_COUNT)
+        ]
 
     # ──────────────────────────────────────────────────────────────────────────
     # Public
@@ -55,11 +67,10 @@ class Simulation:
         # 2. Collisions: food pickup
         self._check_food_pickup()
 
-        # 3. Collisions: nest drop-off
+        # 3. Collisions: nest drop-off (also increments food_storage)
         self._check_nest_dropoff()
 
-        # 4. Emit pheromone — only food-carrying ants lay trail (canonical ACO:
-        #    return-trip trail guides outbound ants toward food)
+        # 4. Emit pheromone — only food-carrying ants lay trail (canonical ACO)
         for ant in self.ants:
             if ant.is_alive() and ant.carrying_food:
                 ant.emit_pheromone(self.pheromone_grid)
@@ -70,9 +81,13 @@ class Simulation:
         # 6. Remove dead ants
         self.ants = [a for a in self.ants if a.is_alive()]
 
-        # 7. Respawn ants at nest to maintain colony size
-        if self.frame % ANT_RESPAWN_RATE == 0 and len(self.ants) < ANT_COUNT:
-            self.ants.append(Ant(*self.nest_pos))
+        # 7. Queen reproduction (checked every QUEEN_REPRO_INTERVAL frames)
+        if self.queen.alive and self.frame % QUEEN_REPRO_INTERVAL == 0:
+            if len(self.ants) < ANT_COUNT_MAX:
+                new_worker = self.queen.try_reproduce(self.food_storage)
+                if new_worker is not None:
+                    self.ants.append(new_worker)
+                    self.food_storage -= QUEEN_REPRO_COST
 
         # 8. Respawn food if all gone
         if not self.food_sources:
@@ -105,7 +120,7 @@ class Simulation:
         self.food_sources = [s for s in self.food_sources if s[2] > 0]
 
     def _check_nest_dropoff(self):
-        """Ants carrying food that touch the nest deposit it."""
+        """Ants carrying food that touch the nest deposit to food_storage."""
         nx, ny = self.nest_pos
         for ant in self.ants:
             if not ant.carrying_food or not ant.is_alive():
@@ -114,6 +129,7 @@ class Simulation:
                 ant.carrying_food = False
                 ant.energy        = ANT_ENERGY_MAX   # reset energy on return
                 self.food_collected += 1
+                self.food_storage   += 1             # bank food for Queen
 
     def _decay_pheromone(self):
         """Multiply every cell by decay factor; zero out cells below threshold."""
