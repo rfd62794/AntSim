@@ -15,12 +15,8 @@ def main():
     sim     = Simulation()
     running = True
 
-    header = (f"{'Frame':>7}  {'FPS':>6}  {'Ants':>5}  "
-              f"{'Food':>5}  {'Stor':>5}  {'QGen':>5}")
-    print("AntSim Phase 2A — Queen Colony")
+    print("AntSim Phase 2B — Evolution Scarcity")
     print("Close the window or press Q to quit.\n")
-    print(header)
-    print("-" * len(header))
 
     report_interval = FPS * 5   # every 5 seconds
 
@@ -37,9 +33,14 @@ def main():
         clock.tick(FPS)
 
         if sim.frame % report_interval == 0 and sim.frame > 0:
-            print(f"{sim.frame:>7}  {clock.get_fps():>6.1f}  "
-                  f"{len(sim.ants):>5}  {sim.food_collected:>5}  "
-                  f"{sim.food_storage:>5}  {sim.queen.generation:>5}")
+            print(f"Frame {sim.frame:>3}  | FPS: {clock.get_fps():>4.1f} | Ants: {len(sim.ants):>2} | Food: {sim.food_collected:>3} | Storage: {sim.food_storage:>2} | QGen: {sim.queen.generation:>2}")
+            print(f"           | Life: {sim.queen.genes['lifespan']:.2f} | Eff: {sim.queen.genes['energy_efficiency']:.2f}")
+
+        if sim.frame == 3600:
+            pygame.image.save(screen, "screenshot_phase2b.png")
+            
+        if sim.frame > 3605:
+            running = False
 
     pygame.quit()
     print(f"\nSimulation ended at frame {sim.frame}.")

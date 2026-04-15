@@ -2,7 +2,7 @@
 import math
 import random
 from constants import (
-    ANT_SPEED, ANT_ENERGY_MAX, ANT_ENERGY_DRAIN,
+    ANT_SPEED, ANT_ENERGY_MAX, ANT_ENERGY_DRAIN, ANT_ENERGY_GAIN,
     ANT_VISION_RANGE, PHEROMONE_DETECT_RANGE,
     PHEROMONE_EMIT, PHEROMONE_THRESHOLD,
     WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -14,9 +14,11 @@ from constants import (
 
 # Default genes for ants created without a Queen (e.g., headless tests)
 _DEFAULT_GENES = {
-    'sensitivity': 1.0,
-    'speed':       1.0,
-    'boldness':    0.5,
+    'sensitivity':       1.0,
+    'speed':             1.0,
+    'boldness':          0.5,
+    'lifespan':          1.0,
+    'energy_efficiency': 1.0,
 }
 
 
@@ -42,7 +44,6 @@ class Ant:
         self.y = y
         angle = random.uniform(0, math.tau)
         self.vx, self.vy  = _angle_to_vec(angle)
-        self.energy: float = ANT_ENERGY_MAX
         self.carrying_food = False
         self.state         = "wander"
         self.queen_id      = queen_id           # lineage tracking
@@ -53,6 +54,9 @@ class Ant:
         self.genes = dict(genes) if genes is not None else dict(_DEFAULT_GENES)
 
         # Derived per-ant constants (computed once at birth)
+        self.max_energy         = ANT_ENERGY_MAX * self.genes['lifespan']
+        self.energy: float      = self.max_energy
+        self.energy_drain_rate  = ANT_ENERGY_DRAIN / self.genes['energy_efficiency']
         self.actual_speed       = ANT_SPEED          * self.genes['speed']
         self.phero_detect_range = PHEROMONE_DETECT_RANGE * self.genes['sensitivity']
         self.vision_range       = ANT_VISION_RANGE   * self.genes['sensitivity']
@@ -69,14 +73,17 @@ class Ant:
         # ── State Transitions ────────────────────────────────────────────────
         if self.carrying_food:
             self.state = "return_nest"
+        elif self.energy < self.max_energy * 0.3:
+            # Low energy: prioritize return to nest
+            self.state = "return_nest"
         else:
             phero_dir = self._sample_pheromone(pheromone_grid)
             food_dir  = self._nearest_food_dir(food_sources)
 
             if phero_dir is not None:
                 # Boldness: high-boldness ants may ignore trails and keep exploring
-                if random.random() < self.genes['boldness']:
-                    # Bold ant wanders even if there's pheromone nearby
+                if self.energy > self.max_energy * 0.6 and random.random() < self.genes['boldness']:
+                    # Bold ant wanders even if there's pheromone nearby (if energy permits)
                     self.state = "wander"
                 else:
                     self.state = "follow_pheromone"
@@ -107,7 +114,9 @@ class Ant:
         self._clamp_to_bounds()
 
         # ── Energy ───────────────────────────────────────────────────────────
-        self.energy -= ANT_ENERGY_DRAIN
+        self.energy -= self.energy_drain_rate
+        if self.carrying_food:
+            self.energy = min(self.max_energy, self.energy + ANT_ENERGY_GAIN)
 
     def emit_pheromone(self, pheromone_grid: list):
         """Add pheromone at the ant's current grid cell."""

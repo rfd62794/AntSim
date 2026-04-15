@@ -62,11 +62,19 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
     pygame.draw.circle(screen, (255, 120, 100), (nx, ny), NEST_RADIUS, 3)
 
     # ── Food sources ──────────────────────────────────────────────────────────
-    for fx, fy, amount in sim.food_sources:
-        # Size shrinks as food is depleted (starts at 100 units)
-        radius = max(4, int(FOOD_RADIUS * (amount / 100) ** 0.5))
-        pygame.draw.circle(screen, COL_FOOD, (int(fx), int(fy)), radius)
-        pygame.draw.circle(screen, (150, 255, 160), (int(fx), int(fy)), radius, 2)
+    font_small = pygame.font.SysFont("consolas", 12)
+    for node in sim.food_sources:
+        # Color brightness indicates remaining supply
+        brightness = int(255 * (node.amount / max(1, node.max_amount)))
+        color = (0, brightness, 0)
+        
+        radius = FOOD_RADIUS
+        pygame.draw.circle(screen, color, (int(node.x), int(node.y)), radius)
+        pygame.draw.circle(screen, (150, 255, 160), (int(node.x), int(node.y)), radius, 2)
+        
+        # Draw amount text
+        amount_text = font_small.render(str(node.amount), True, (255, 255, 255))
+        screen.blit(amount_text, (int(node.x) - 5, int(node.y) - 5))
 
     # ── Workers ───────────────────────────────────────────────────────────────
     for ant in sim.ants:
@@ -122,6 +130,8 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
         f"sensitivity: {sim.queen.genes['sensitivity']:.3f}",
         f"speed:       {sim.queen.genes['speed']:.3f}",
         f"boldness:    {sim.queen.genes['boldness']:.3f}",
+        f"lifespan:    {sim.queen.genes['lifespan']:.3f}",
+        f"efficiency:  {sim.queen.genes['energy_efficiency']:.3f}",
     ]
     for i, text in enumerate(reversed(gene_lines)):
         s = gfont.render(text, True, COL_QUEEN)
