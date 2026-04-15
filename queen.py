@@ -32,8 +32,16 @@ class Queen:
         self.genes       = genes if genes is not None else dict(DEFAULT_GENES)
         self.generation  = 0    # incremented each time a new worker is born
         self.workers_born = 0
+        self.death_chance_per_gen = QUEEN_DEATH_CHANCE_PER_GEN
 
     # ──────────────────────────────────────────────────────────────────────────
+
+    def check_mortality(self) -> bool:
+        """Random queen death, return True if just died"""
+        if random.random() < self.death_chance_per_gen:
+            self.alive = False
+            return True
+        return False
 
     def try_reproduce(self, food_storage: int):
         """
