@@ -94,35 +94,20 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
         pygame.draw.rect(screen, (50, 50, 50),   (px - bar_w // 2, py - 8, bar_w, bar_h))
         pygame.draw.rect(screen, (100, 220, 80), (px - bar_w // 2, py - 8, filled, bar_h))
 
-    # ── Queen ─────────────────────────────────────────────────────────────────
+    # ── Nest / Queen ──────────────────────────────────────────────────────────
+    nx, ny = sim.nest_pos
+
     if sim.queen.alive:
-        qx, qy = int(sim.queen.x), int(sim.queen.y)
-        # Pulsing glow ring (radius oscillates with frame)
-        pulse = int(4 * abs(math.sin(sim.frame * 0.05)))
-        pygame.draw.circle(screen, (*COL_QUEEN, 60),
-                           (qx, qy), 16 + pulse, 3)
-        # Queen body
-        pygame.draw.circle(screen, COL_QUEEN, (qx, qy), 10)
-        pygame.draw.circle(screen, (255, 200, 240), (qx, qy), 10, 2)  # highlight rim
+        # Pulsing queen representation
+        pulse = (math.sin(pygame.time.get_ticks() / 200.0) + 1) / 2
+        q_radius = 8 + int(4 * pulse)
+        pygame.draw.circle(screen, COL_QUEEN, (nx, ny), q_radius)
+        # Queen aura (genes['boldness'] could affect aura size, etc.)
+        aura_rad = int(20 * sim.queen.genes['boldness'])
+        pygame.draw.circle(screen, COL_QUEEN, (nx, ny), aura_rad, 1)
 
-    # ── HUD ───────────────────────────────────────────────────────────────────
-    font     = pygame.font.SysFont("consolas", 18)
-    hud_x    = 10
-    hud_y    = 10
-    hud_line = 22
-
-    lines = [
-        (f"FPS:      {clock.get_fps():.1f}",           COL_HUD),
-        (f"Frame:    {sim.frame}",                      COL_HUD),
-        (f"Workers:  {len(sim.ants)}",                  COL_HUD),
-        (f"Food:     {sim.food_collected}",             COL_FOOD),
-        (f"Storage:  {sim.food_storage}",               (200, 160, 80)),
-        (f"Queen Gen:{sim.queen.generation}",           COL_QUEEN),
-        (f"Born:     {sim.queen.workers_born}",         COL_QUEEN),
-    ]
-    for i, (text, col) in enumerate(lines):
-        surf = font.render(text, True, col)
-        screen.blit(surf, (hud_x, hud_y + i * hud_line))
+    # Outline nest
+    pygame.draw.circle(screen, (255, 120, 100), (nx, ny), NEST_RADIUS, 3)  # highlight rim
 
     # ── Queen gene readout (bottom-right) ─────────────────────────────────────
     gfont = pygame.font.SysFont("consolas", 14)
@@ -137,6 +122,24 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
         s = gfont.render(text, True, COL_QUEEN)
         screen.blit(s, (WINDOW_WIDTH - s.get_width() - 10,
                         WINDOW_HEIGHT - 14 - i * 18))
+
+    # ── HUD / Stats (top-left) ────────────────────────────────────────────────
+    font = pygame.font.SysFont("consolas", 16)
+    stats = [
+        f"Frame:   {sim.frame}",
+        f"FPS:     {clock.get_fps():.1f}",
+        f"Workers: {len(sim.ants)}",
+        f"Food:    {sim.food_collected}",
+        f"Storage: {sim.food_storage}",
+        f"Royal Jelly: {sim.royal_jelly}"
+    ]
+    for i, text in enumerate(stats):
+        s = font.render(text, True, (255, 255, 255))
+        screen.blit(s, (10, 10 + i * 20))
+
+    if sim.emergency_queen_mode:
+        emergency_text = f"EMERGENCY: Raising new Queen..."
+        screen.blit(font.render(emergency_text, True, (255, 0, 0)), (10, 10 + len(stats) * 20))
 
     # ── State legend (bottom-left) ────────────────────────────────────────────
     lfont = pygame.font.SysFont("consolas", 14)

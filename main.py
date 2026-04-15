@@ -33,11 +33,12 @@ def main():
         clock.tick(FPS)
 
         if sim.frame % report_interval == 0 and sim.frame > 0:
-            print(f"Frame {sim.frame:>3}  | FPS: {clock.get_fps():>4.1f} | Ants: {len(sim.ants):>2} | Food: {sim.food_collected:>3} | Storage: {sim.food_storage:>2} | QGen: {sim.queen.generation:>2}")
+            alive_str = "Yes" if sim.queen.alive else ("No (EMERGENCY)" if sim.emergency_queen_mode else "Yes (NEW)")
+            print(f"Frame {sim.frame:>3}  | FPS: {clock.get_fps():>4.1f} | Ants: {len(sim.ants):>2} | Food: {sim.food_collected:>3} | Storage: {sim.food_storage:>2} | RJ: {sim.royal_jelly} | QGen: {sim.queen.generation:>2} | Alive: {alive_str}")
             print(f"           | Life: {sim.queen.genes['lifespan']:.2f} | Eff: {sim.queen.genes['energy_efficiency']:.2f}")
 
         if sim.frame == 3600:
-            pygame.image.save(screen, "screenshot_phase2b.png")
+            pygame.image.save(screen, "screenshot_phase2c.png")
             
         if sim.frame > 3605:
             running = False
