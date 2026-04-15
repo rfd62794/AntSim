@@ -1,18 +1,71 @@
 # main.py — Entry point for AntSim (Phase 2A: Queen + Genes)
 import sys
+import os
+import json
 import pygame
 from constants import WINDOW_WIDTH, WINDOW_HEIGHT, FPS
+import constants
 from sim import Simulation
 from render import render
 
+def load_tuning_config(config_file):
+    """Load tuning configuration if provided"""
+    if os.path.exists(config_file):
+        with open(config_file, 'r') as f:
+            return json.load(f)
+    return None
+
 
 def main():
+    config_file = sys.argv[1] if len(sys.argv) > 1 else None
+    tuning_config = load_tuning_config(config_file) if config_file else None
+
+    if tuning_config:
+        # Override constants with config values
+        constants.QUEEN_DEATH_CHANCE_PER_GEN = tuning_config.get('QUEEN_DEATH_CHANCE_PER_GEN', constants.QUEEN_DEATH_CHANCE_PER_GEN)
+        SIMULATION_FRAMES = tuning_config.get('SIMULATION_FRAMES', 3600)
+        HEADLESS_MODE = tuning_config.get('HEADLESS_MODE', False)
+        OUTPUT_FILE = tuning_config.get('OUTPUT_FILE', None)
+    else:
+        HEADLESS_MODE = False
+        OUTPUT_FILE = None
+        SIMULATION_FRAMES = 3600
+
+    if HEADLESS_MODE:
+        import sim
+        sim.QUEEN_DEATH_CHANCE_PER_GEN = constants.QUEEN_DEATH_CHANCE_PER_GEN
+        # Ensure it affects Queen instances
+        from queen import Queen
+        simulation = Simulation()
+        simulation.queen.death_chance_per_gen = constants.QUEEN_DEATH_CHANCE_PER_GEN
+        
+        for frame in range(SIMULATION_FRAMES):
+            simulation.update()
+            
+            if frame > 0 and frame % 600 == 0:
+                print(f"Frame {frame} | Ants: {len(simulation.ants)} | Food: {simulation.food_collected}")
+                
+        final_metrics = {
+            'run_number': 0,
+            'final_ants': len(simulation.ants),
+            'final_food': simulation.food_collected,
+            'final_generations': simulation.queen.generation,
+            'final_queen_alive': simulation.queen.alive
+        }
+        
+        if OUTPUT_FILE:
+            with open(OUTPUT_FILE, 'w') as f:
+                json.dump(final_metrics, f)
+        
+        print(f"\nFinal: Ants={len(simulation.ants)} Food={simulation.food_collected} Gen={simulation.queen.generation} Alive={simulation.queen.alive}")
+        sys.exit(0)
+
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption("AntSim — Phase 2A: Queen Colony")
     clock  = pygame.time.Clock()
 
-    sim     = Simulation()
+    simulation = Simulation()
     running = True
 
     print("AntSim Phase 2B — Evolution Scarcity")
@@ -28,27 +81,27 @@ def main():
                 if event.key == pygame.K_q:
                     running = False
 
-        sim.update()
-        render(screen, sim, clock)
+        simulation.update()
+        render(screen, simulation, clock)
         clock.tick(FPS)
 
-        if sim.frame % report_interval == 0 and sim.frame > 0:
-            alive_str = "Yes" if sim.queen.alive else ("No (EMERGENCY)" if sim.emergency_queen_mode else "Yes (NEW)")
-            print(f"Frame {sim.frame:>3}  | FPS: {clock.get_fps():>4.1f} | Ants: {len(sim.ants):>2} | Food: {sim.food_collected:>3} | Storage: {sim.food_storage:>2} | RJ: {sim.royal_jelly} | QGen: {sim.queen.generation:>2} | Alive: {alive_str}")
-            print(f"           | Life: {sim.queen.genes['lifespan']:.2f} | Eff: {sim.queen.genes['energy_efficiency']:.2f}")
+        if simulation.frame % report_interval == 0 and simulation.frame > 0:
+            alive_str = "Yes" if simulation.queen.alive else ("No (EMERGENCY)" if simulation.emergency_queen_mode else "Yes (NEW)")
+            print(f"Frame {simulation.frame:>3}  | FPS: {clock.get_fps():>4.1f} | Ants: {len(simulation.ants):>2} | Food: {simulation.food_collected:>3} | Storage: {simulation.food_storage:>2} | RJ: {simulation.royal_jelly} | QGen: {simulation.queen.generation:>2} | Alive: {alive_str}")
+            print(f"           | Life: {simulation.queen.genes['lifespan']:.2f} | Eff: {simulation.queen.genes['energy_efficiency']:.2f}")
 
-        if sim.frame == 3600:
+        if simulation.frame == SIMULATION_FRAMES:
             pygame.image.save(screen, "screenshot_phase2c.png")
             
-        if sim.frame > 3605:
-            running = False
+        if simulation.frame > SIMULATION_FRAMES + 5:
+             running = False
 
     pygame.quit()
-    print(f"\nSimulation ended at frame {sim.frame}.")
-    print(f"Total food collected : {sim.food_collected}")
-    print(f"Queen generation     : {sim.queen.generation}")
-    print(f"Total workers born   : {sim.queen.workers_born}")
-    print(f"Workers alive at exit: {len(sim.ants)}")
+    print(f"\nSimulation ended at frame {simulation.frame}.")
+    print(f"Total food collected : {simulation.food_collected}")
+    print(f"Queen generation     : {simulation.queen.generation}")
+    print(f"Total workers born   : {simulation.queen.workers_born}")
+    print(f"Workers alive at exit: {len(simulation.ants)}")
     sys.exit(0)
 
 
