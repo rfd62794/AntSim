@@ -16,9 +16,7 @@ FOOD_RADIUS = 20
 
 # ── Queen ─────────────────────────────────────────────────────────────────────
 QUEEN_ENERGY_MAX      = 200.0
-QUEEN_REPRO_COST      = 10    # food_storage units consumed per new worker (normal)
-QUEEN_REPRO_EMERG     = 5     # emergency cost when colony < QUEEN_EMERG_THRESHOLD
-QUEEN_EMERG_THRESHOLD = 5     # worker count below which emergency birth fires
+QUEEN_REPRO_COST      = 10    # food_storage units consumed per new worker
 QUEEN_REPRO_INTERVAL  = 60    # frames between reproduction checks (1 s at 60 FPS)
 GENE_MUTATION_CHANCE  = 0.05  # 5 % per gene per birth
 GENE_MUTATION_RANGE   = 0.05  # ±5 % shift when mutation fires
@@ -28,7 +26,7 @@ GENE_MAX              = 1.5
 # ── Ant ───────────────────────────────────────────────────────────────────────
 ANT_SPEED          = 2.0   # base px/frame; multiplied by genes['speed']
 ANT_ENERGY_MAX     = 100.0
-ANT_ENERGY_DRAIN   = 0.2   # 500 frames to die; ~300px round-trip at base speed
+ANT_ENERGY_DRAIN   = 0.05  # 2000 frames to die; plenty of time to find food
 ANT_VISION_RANGE   = 100   # base px; multiplied by genes['sensitivity']
 WANDER_TURN_MIN    = 20    # frames before next random direction change
 WANDER_TURN_MAX    = 40

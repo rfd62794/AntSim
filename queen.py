@@ -33,16 +33,14 @@ class Queen:
 
     # ──────────────────────────────────────────────────────────────────────────
 
-    def try_reproduce(self, food_storage: int, cost: int | None = None):
+    def try_reproduce(self, food_storage: int):
         """
         Attempt to produce one worker.  Returns a new Ant if successful, else None.
-        *cost* overrides QUEEN_REPRO_COST (used for emergency births).
         Caller deducts the food cost on success.
         """
         from ant import Ant
 
-        required = cost if cost is not None else QUEEN_REPRO_COST
-        if food_storage < required:
+        if food_storage < QUEEN_REPRO_COST:
             return None
 
         # Build worker gene dict from queen's genes + optional mutation
