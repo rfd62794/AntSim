@@ -39,7 +39,7 @@ WANDER_TURN_MAX    = 40
 # ── Pheromone ─────────────────────────────────────────────────────────────────
 PHEROMONE_DETECT_RANGE  = 40
 PHEROMONE_EMIT_STRONG   = 100  # emitted when bringing food home
-PHEROMONE_EMIT_WEAK     = 30   # emitted softly while wandering
+PHEROMONE_EMIT_WEAK     = 2    # emitted softly while wandering (prevent death spirals)
 PHEROMONE_GRID_WIDTH    = 80
 PHEROMONE_GRID_HEIGHT   = 60
 PHEROMONE_DECAY         = 0.95
