@@ -50,6 +50,13 @@ class Ant:
         self._wander_timer = random.randint(WANDER_TURN_MIN, WANDER_TURN_MAX)
         self._wander_angle = angle
 
+        # ── Nest / Task State ────────────────────────────────────────────────
+        self.chamber_id = None  # Current chamber (None = in overworld)
+        self.in_nest = False    # Bool: is ant currently in nest?
+        self.task = None        # Current task: "deposit_food", "feed_larvae", "rest"
+        self.task_progress = 0  # Frames until task complete
+        self.task_duration = 30  # Frames to complete task
+
         # Genes — copy so mutations don't alias the Queen's dict
         self.genes = dict(genes) if genes is not None else dict(_DEFAULT_GENES)
 
@@ -145,6 +152,37 @@ class Ant:
 
     def is_alive(self) -> bool:
         return self.energy > 0
+
+    def enter_nest(self, chamber_id: str):
+        """Ant moves from overworld to nest"""
+        self.in_nest = True
+        self.chamber_id = chamber_id
+        # x, y are effectively nullified while in nest for overworld rendering
+        # but we keep them to avoid errors if logic checks them before separation
+
+    def exit_nest(self, exit_x: float, exit_y: float):
+        """Ant moves from nest back to overworld"""
+        self.in_nest = False
+        self.chamber_id = None
+        self.x = exit_x
+        self.y = exit_y
+        self.task = None
+
+    def perform_task(self, task_type: str, duration: int = 30):
+        """Start a task in the chamber"""
+        self.task = task_type
+        self.task_progress = 0
+        self.task_duration = duration
+
+    def update_task(self) -> str | None:
+        """Progress task toward completion. Returns task name on completion."""
+        if self.task:
+            self.task_progress += 1
+            if self.task_progress >= self.task_duration:
+                completed_task = self.task
+                self.task = None
+                return completed_task
+        return None
 
     # ──────────────────────────────────────────────────────────────────────────
     # Internal helpers

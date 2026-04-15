@@ -14,6 +14,8 @@ from constants import (
     WINDOW_WIDTH, WINDOW_HEIGHT,
     CELL_W, CELL_H,
 )
+from nest import NestStructure
+from render_nest import NestRenderer
 
 # Minimum distance a food source must be from the nest
 _FOOD_SPAWN_MIN_DIST = 100
@@ -125,6 +127,13 @@ class Simulation:
         # 8. Respawn food
         self.check_food_respawn()
 
+        # 9. Verify antrance to nest / update nest occupants
+        for ant in self.ants[:]:
+            if self.check_ant_at_nest_entrance(ant):
+                self.process_ant_nest_entry(ant)
+        
+        self.update_ants_in_nest()
+
     def check_food_respawn(self):
         """Remove depleted nodes, respawn new ones to maintain FOOD_COUNT"""
         self.food_sources = [fn for fn in self.food_sources if not fn.is_depleted()]
@@ -235,3 +244,65 @@ class Simulation:
             for i in range(len(row)):
                 v = row[i] * PHEROMONE_DECAY
                 row[i] = v if v >= PHEROMONE_THRESHOLD else 0.0
+
+    # ── Phase 3: Nest View Logic ────────────────────────────────────────────
+
+    def check_ant_at_nest_entrance(self, ant) -> bool:
+        """Check if ant reached nest entrance (center of map)"""
+        nx, ny = self.nest_pos
+        dist = math.hypot(ant.x - nx, ant.y - ny)
+        # Entry threshold: must be near nest radius and either carrying food or low energy
+        if dist < NEST_RADIUS + 5:
+            if ant.carrying_food or ant.energy < ant.max_energy * 0.4:
+                return True
+        return False
+
+    def process_ant_nest_entry(self, ant):
+        """Move ant from overworld into the subterranean view"""
+        if ant.in_nest: return
+
+        # Determine destination chamber based on state
+        if ant.carrying_food:
+            chamber_id = 'storage'
+            task = 'deposit_food'
+        else:
+            chamber_id = 'nursery' # Go rest/nursery if just low energy
+            task = 'rest'
+
+        ant.enter_nest(chamber_id)
+        self.ants_in_nest.append(ant)
+        if ant in self.ants:
+            self.ants.remove(ant)
+        
+        ant.perform_task(task, duration=40)
+
+    def process_ant_nest_exit(self, ant):
+        """Move ant from nest back to overworld"""
+        if not ant.in_nest: return
+
+        # Finalize tasks before ejection
+        if ant.task_complete_type == 'deposit_food':
+            # Food collected / storage increments handled in _check_nest_dropoff?
+            # Actually for Phase 3 we can move the math here or keep it in dropoff.
+            # Directive says: self.food_storage += 1
+            pass
+        
+        ant.exit_nest(self.nest_pos[0], self.nest_pos[1])
+        self.ants_in_nest.remove(ant)
+        self.ants.append(ant)
+
+    def update_ants_in_nest(self):
+        """Tick internal nest tasks"""
+        to_exit = []
+        for ant in self.ants_in_nest:
+            # Queen energy also regens in nest? Simple for now:
+            ant.energy = min(ant.max_energy, ant.energy + 2.0)
+            
+            completed = ant.update_task()
+            if completed:
+                # Capture result for exit processing
+                ant.task_complete_type = completed
+                to_exit.append(ant)
+        
+        for ant in to_exit:
+            self.process_ant_nest_exit(ant)
