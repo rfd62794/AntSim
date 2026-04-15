@@ -6,14 +6,27 @@ from constants import (
     CELL_W, CELL_H,
     NEST_RADIUS, FOOD_RADIUS,
     COL_BG, COL_NEST, COL_FOOD, COL_ANT, COL_ANT_FOOD,
-    COL_PHEROMONE, COL_HUD,
+    COL_PHEROMONE, COL_HUD, COL_QUEEN,
+    GENE_MIN, GENE_MAX,
 )
 
-# Pre-allocate a surface for the pheromone heatmap so we don't recreate it
-# every frame (small but measurable saving at 4800 cells × per-pixel write).
+# Pre-allocate the pheromone surface once
 _phero_surface: pygame.Surface | None = None
 _cell_w_px = int(CELL_W)
 _cell_h_px = int(CELL_H)
+
+
+def _gene_colour(value: float) -> tuple[int, int, int]:
+    """
+    Map a gene value in [GENE_MIN, GENE_MAX] to a colour.
+    Low (0.5) → cool blue.  High (1.5) → warm red.  Mid (1.0) → grey.
+    Used to tint ants by speed gene so genetic variation is visible.
+    """
+    t = (value - GENE_MIN) / (GENE_MAX - GENE_MIN)   # 0.0 – 1.0
+    r = int(80  + t * 160)   # 80 → 240
+    g = int(220 - t * 140)   # 220 → 80
+    b = int(180 - t * 130)   # 180 → 50
+    return (r, g, b)
 
 
 def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
@@ -27,7 +40,7 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
     if _phero_surface is None:
         _phero_surface = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
 
-    _phero_surface.fill((0, 0, 0, 0))  # clear to transparent
+    _phero_surface.fill((0, 0, 0, 0))
 
     pr, pg, pb = COL_PHEROMONE
     for gy in range(PHEROMONE_GRID_HEIGHT):
@@ -35,9 +48,9 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
             strength = sim.pheromone_grid[gy][gx]
             if strength <= 0:
                 continue
-            alpha   = int(strength / 255 * 180)          # max alpha 180
-            px      = int(gx * CELL_W)
-            py      = int(gy * CELL_H)
+            alpha = int(strength / 255 * 180)
+            px    = int(gx * CELL_W)
+            py    = int(gy * CELL_H)
             _phero_surface.fill((pr, pg, pb, alpha),
                                 rect=(px, py, _cell_w_px, _cell_h_px))
 
@@ -46,39 +59,77 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
     # ── Nest ──────────────────────────────────────────────────────────────────
     nx, ny = sim.nest_pos
     pygame.draw.circle(screen, COL_NEST, (nx, ny), NEST_RADIUS)
-    pygame.draw.circle(screen, (255, 120, 100), (nx, ny), NEST_RADIUS, 3)  # rim
+    pygame.draw.circle(screen, (255, 120, 100), (nx, ny), NEST_RADIUS, 3)
 
     # ── Food sources ──────────────────────────────────────────────────────────
-    for fx, fy, _amount in sim.food_sources:
-        pygame.draw.circle(screen, COL_FOOD, (int(fx), int(fy)), FOOD_RADIUS)
-        pygame.draw.circle(screen, (150, 255, 160), (int(fx), int(fy)), FOOD_RADIUS, 2)
+    for fx, fy, amount in sim.food_sources:
+        # Size shrinks as food is depleted (starts at 100 units)
+        radius = max(4, int(FOOD_RADIUS * (amount / 100) ** 0.5))
+        pygame.draw.circle(screen, COL_FOOD, (int(fx), int(fy)), radius)
+        pygame.draw.circle(screen, (150, 255, 160), (int(fx), int(fy)), radius, 2)
 
-    # ── Ants ──────────────────────────────────────────────────────────────────
+    # ── Workers ───────────────────────────────────────────────────────────────
     for ant in sim.ants:
-        colour = COL_ANT_FOOD if ant.carrying_food else COL_ANT
+        if ant.carrying_food:
+            colour = COL_ANT_FOOD
+        else:
+            # Tint by speed gene so genetic variation is visible
+            colour = _gene_colour(ant.genes.get('speed', 1.0))
+
         px, py = int(ant.x), int(ant.y)
         pygame.draw.circle(screen, colour, (px, py), 4)
-        # Energy bar (tiny, above the ant dot)
+
+        # Tiny energy bar above the dot
         bar_w  = 8
         bar_h  = 2
-        filled = int(bar_w * (ant.energy / 100))
-        pygame.draw.rect(screen, (80, 80, 80),  (px - bar_w // 2, py - 8, bar_w, bar_h))
+        filled = int(bar_w * max(0, ant.energy / 100))
+        pygame.draw.rect(screen, (50, 50, 50),   (px - bar_w // 2, py - 8, bar_w, bar_h))
         pygame.draw.rect(screen, (100, 220, 80), (px - bar_w // 2, py - 8, filled, bar_h))
 
-    # ── HUD ───────────────────────────────────────────────────────────────────
-    font = pygame.font.SysFont("consolas", 18)
-    lines = [
-        f"FPS:  {clock.get_fps():.1f}",
-        f"Ants: {len(sim.ants)}",
-        f"Food: {sim.food_collected}",
-        f"Frame:{sim.frame}",
-    ]
-    for i, text in enumerate(lines):
-        surf = font.render(text, True, COL_HUD)
-        screen.blit(surf, (10, 10 + i * 22))
+    # ── Queen ─────────────────────────────────────────────────────────────────
+    if sim.queen.alive:
+        qx, qy = int(sim.queen.x), int(sim.queen.y)
+        # Pulsing glow ring (radius oscillates with frame)
+        pulse = int(4 * abs(math.sin(sim.frame * 0.05)))
+        pygame.draw.circle(screen, (*COL_QUEEN, 60),
+                           (qx, qy), 16 + pulse, 3)
+        # Queen body
+        pygame.draw.circle(screen, COL_QUEEN, (qx, qy), 10)
+        pygame.draw.circle(screen, (255, 200, 240), (qx, qy), 10, 2)  # highlight rim
 
-    # State legend (bottom-left)
-    legend_font = pygame.font.SysFont("consolas", 14)
+    # ── HUD ───────────────────────────────────────────────────────────────────
+    font     = pygame.font.SysFont("consolas", 18)
+    hud_x    = 10
+    hud_y    = 10
+    hud_line = 22
+
+    lines = [
+        (f"FPS:      {clock.get_fps():.1f}",           COL_HUD),
+        (f"Frame:    {sim.frame}",                      COL_HUD),
+        (f"Workers:  {len(sim.ants)}",                  COL_HUD),
+        (f"Food:     {sim.food_collected}",             COL_FOOD),
+        (f"Storage:  {sim.food_storage}",               (200, 160, 80)),
+        (f"Queen Gen:{sim.queen.generation}",           COL_QUEEN),
+        (f"Born:     {sim.queen.workers_born}",         COL_QUEEN),
+    ]
+    for i, (text, col) in enumerate(lines):
+        surf = font.render(text, True, col)
+        screen.blit(surf, (hud_x, hud_y + i * hud_line))
+
+    # ── Queen gene readout (bottom-right) ─────────────────────────────────────
+    gfont = pygame.font.SysFont("consolas", 14)
+    gene_lines = [
+        f"sensitivity: {sim.queen.genes['sensitivity']:.3f}",
+        f"speed:       {sim.queen.genes['speed']:.3f}",
+        f"boldness:    {sim.queen.genes['boldness']:.3f}",
+    ]
+    for i, text in enumerate(reversed(gene_lines)):
+        s = gfont.render(text, True, COL_QUEEN)
+        screen.blit(s, (WINDOW_WIDTH - s.get_width() - 10,
+                        WINDOW_HEIGHT - 14 - i * 18))
+
+    # ── State legend (bottom-left) ────────────────────────────────────────────
+    lfont = pygame.font.SysFont("consolas", 14)
     legend = [
         ("wander",           (180, 180, 180)),
         ("follow pheromone", COL_PHEROMONE),
@@ -86,7 +137,11 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
         ("return nest",      COL_ANT_FOOD),
     ]
     for i, (label, col) in enumerate(legend):
-        s = legend_font.render(f"■ {label}", True, col)
+        s = lfont.render(f"\u25a0 {label}", True, col)
         screen.blit(s, (10, WINDOW_HEIGHT - 20 - i * 18))
 
     pygame.display.flip()
+
+
+# math needed for Queen pulse — import at module level
+import math

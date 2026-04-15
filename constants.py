@@ -16,7 +16,9 @@ FOOD_RADIUS = 20
 
 # ── Queen ─────────────────────────────────────────────────────────────────────
 QUEEN_ENERGY_MAX      = 200.0
-QUEEN_REPRO_COST      = 20    # food_storage units consumed per new worker
+QUEEN_REPRO_COST      = 10    # food_storage units consumed per new worker (normal)
+QUEEN_REPRO_EMERG     = 5     # emergency cost when colony < QUEEN_EMERG_THRESHOLD
+QUEEN_EMERG_THRESHOLD = 5     # worker count below which emergency birth fires
 QUEEN_REPRO_INTERVAL  = 60    # frames between reproduction checks (1 s at 60 FPS)
 GENE_MUTATION_CHANCE  = 0.05  # 5 % per gene per birth
 GENE_MUTATION_RANGE   = 0.05  # ±5 % shift when mutation fires

@@ -1,4 +1,4 @@
-# main.py — Entry point for AntSim MVP
+# main.py — Entry point for AntSim (Phase 2A: Queen + Genes)
 import sys
 import pygame
 from constants import WINDOW_WIDTH, WINDOW_HEIGHT, FPS
@@ -9,16 +9,20 @@ from render import render
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("AntSim MVP — Phase 1")
+    pygame.display.set_caption("AntSim — Phase 2A: Queen Colony")
     clock  = pygame.time.Clock()
 
     sim     = Simulation()
     running = True
 
-    print("AntSim started. Close the window or press Q to quit.")
-    print(f"{'Frame':>7}  {'FPS':>6}  {'Ants':>5}  {'Food':>6}")
+    header = (f"{'Frame':>7}  {'FPS':>6}  {'Ants':>5}  "
+              f"{'Food':>5}  {'Stor':>5}  {'QGen':>5}")
+    print("AntSim Phase 2A — Queen Colony")
+    print("Close the window or press Q to quit.\n")
+    print(header)
+    print("-" * len(header))
 
-    report_interval = FPS * 5  # print status every 5 seconds
+    report_interval = FPS * 5   # every 5 seconds
 
     while running:
         for event in pygame.event.get():
@@ -32,14 +36,17 @@ def main():
         render(screen, sim, clock)
         clock.tick(FPS)
 
-        # Periodic terminal report
         if sim.frame % report_interval == 0 and sim.frame > 0:
             print(f"{sim.frame:>7}  {clock.get_fps():>6.1f}  "
-                  f"{len(sim.ants):>5}  {sim.food_collected:>6}")
+                  f"{len(sim.ants):>5}  {sim.food_collected:>5}  "
+                  f"{sim.food_storage:>5}  {sim.queen.generation:>5}")
 
     pygame.quit()
     print(f"\nSimulation ended at frame {sim.frame}.")
-    print(f"Total food collected: {sim.food_collected}")
+    print(f"Total food collected : {sim.food_collected}")
+    print(f"Queen generation     : {sim.queen.generation}")
+    print(f"Total workers born   : {sim.queen.workers_born}")
+    print(f"Workers alive at exit: {len(sim.ants)}")
     sys.exit(0)
 
 
