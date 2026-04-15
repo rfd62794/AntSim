@@ -8,7 +8,6 @@ from constants import (
     FOOD_COUNT, FOOD_RADIUS, NEST_POS, NEST_RADIUS,
     ANT_ENERGY_MAX,
     QUEEN_REPRO_COST, QUEEN_REPRO_INTERVAL,
-    QUEEN_REPRO_EMERG, QUEEN_EMERG_THRESHOLD,
     PHEROMONE_GRID_WIDTH, PHEROMONE_GRID_HEIGHT,
     PHEROMONE_DECAY, PHEROMONE_THRESHOLD,
     WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -85,11 +84,10 @@ class Simulation:
         # 7. Queen reproduction (checked every QUEEN_REPRO_INTERVAL frames)
         if self.queen.alive and self.frame % QUEEN_REPRO_INTERVAL == 0:
             if len(self.ants) < ANT_COUNT_MAX:
-                cost = QUEEN_REPRO_EMERG if len(self.ants) < QUEEN_EMERG_THRESHOLD else QUEEN_REPRO_COST
-                new_worker = self.queen.try_reproduce(self.food_storage, cost)
+                new_worker = self.queen.try_reproduce(self.food_storage)
                 if new_worker is not None:
                     self.ants.append(new_worker)
-                    self.food_storage -= cost
+                    self.food_storage -= QUEEN_REPRO_COST
 
         # 8. Respawn food if all gone
         if not self.food_sources:

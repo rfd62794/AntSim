@@ -41,6 +41,9 @@ def main():
                   f"{len(sim.ants):>5}  {sim.food_collected:>5}  "
                   f"{sim.food_storage:>5}  {sim.queen.generation:>5}")
 
+        if sim.frame == 3600:
+            pygame.image.save(screen, "screenshot_60s.png")
+
     pygame.quit()
     print(f"\nSimulation ended at frame {sim.frame}.")
     print(f"Total food collected : {sim.food_collected}")
