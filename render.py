@@ -29,16 +29,21 @@ def _gene_colour(value: float) -> tuple[int, int, int]:
     return (r, g, b)
 
 
-def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
-    """Draw one complete frame onto *screen* and flip the display."""
+import math
+
+def render_overworld(surface: pygame.Surface, sim, clock: pygame.time.Clock):
+    """Draw one complete overworld frame onto *surface*."""
     global _phero_surface
 
+    width = surface.get_width()
+    height = surface.get_height()
+
     # ── Background ────────────────────────────────────────────────────────────
-    screen.fill(COL_BG)
+    surface.fill(COL_BG)
 
     # ── Pheromone heatmap ────────────────────────────────────────────────────
-    if _phero_surface is None:
-        _phero_surface = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+    if _phero_surface is None or _phero_surface.get_size() != (width, height):
+        _phero_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
     _phero_surface.fill((0, 0, 0, 0))
 
@@ -54,12 +59,12 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
             _phero_surface.fill((pr, pg, pb, alpha),
                                 rect=(px, py, _cell_w_px, _cell_h_px))
 
-    screen.blit(_phero_surface, (0, 0))
+    surface.blit(_phero_surface, (0, 0))
 
     # ── Nest ──────────────────────────────────────────────────────────────────
     nx, ny = sim.nest_pos
-    pygame.draw.circle(screen, COL_NEST, (nx, ny), NEST_RADIUS)
-    pygame.draw.circle(screen, (255, 120, 100), (nx, ny), NEST_RADIUS, 3)
+    pygame.draw.circle(surface, COL_NEST, (nx, ny), NEST_RADIUS)
+    pygame.draw.circle(surface, (255, 120, 100), (nx, ny), NEST_RADIUS, 3)
 
     # ── Food sources ──────────────────────────────────────────────────────────
     font_small = pygame.font.SysFont("consolas", 12)
@@ -69,12 +74,12 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
         color = (0, brightness, 0)
         
         radius = FOOD_RADIUS
-        pygame.draw.circle(screen, color, (int(node.x), int(node.y)), radius)
-        pygame.draw.circle(screen, (150, 255, 160), (int(node.x), int(node.y)), radius, 2)
+        pygame.draw.circle(surface, color, (int(node.x), int(node.y)), radius)
+        pygame.draw.circle(surface, (150, 255, 160), (int(node.x), int(node.y)), radius, 2)
         
         # Draw amount text
         amount_text = font_small.render(str(node.amount), True, (255, 255, 255))
-        screen.blit(amount_text, (int(node.x) - 5, int(node.y) - 5))
+        surface.blit(amount_text, (int(node.x) - 5, int(node.y) - 5))
 
     # ── Workers ───────────────────────────────────────────────────────────────
     for ant in sim.ants:
@@ -85,14 +90,14 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
             colour = _gene_colour(ant.genes.get('speed', 1.0))
 
         px, py = int(ant.x), int(ant.y)
-        pygame.draw.circle(screen, colour, (px, py), 4)
+        pygame.draw.circle(surface, colour, (px, py), 4)
 
         # Tiny energy bar above the dot
         bar_w  = 8
         bar_h  = 2
         filled = int(bar_w * max(0, ant.energy / 100))
-        pygame.draw.rect(screen, (50, 50, 50),   (px - bar_w // 2, py - 8, bar_w, bar_h))
-        pygame.draw.rect(screen, (100, 220, 80), (px - bar_w // 2, py - 8, filled, bar_h))
+        pygame.draw.rect(surface, (50, 50, 50),   (px - bar_w // 2, py - 8, bar_w, bar_h))
+        pygame.draw.rect(surface, (100, 220, 80), (px - bar_w // 2, py - 8, filled, bar_h))
 
     # ── Nest / Queen ──────────────────────────────────────────────────────────
     nx, ny = sim.nest_pos
@@ -101,13 +106,13 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
         # Pulsing queen representation
         pulse = (math.sin(pygame.time.get_ticks() / 200.0) + 1) / 2
         q_radius = 8 + int(4 * pulse)
-        pygame.draw.circle(screen, COL_QUEEN, (nx, ny), q_radius)
+        pygame.draw.circle(surface, COL_QUEEN, (nx, ny), q_radius)
         # Queen aura (genes['boldness'] could affect aura size, etc.)
         aura_rad = int(20 * sim.queen.genes['boldness'])
-        pygame.draw.circle(screen, COL_QUEEN, (nx, ny), aura_rad, 1)
+        pygame.draw.circle(surface, COL_QUEEN, (nx, ny), aura_rad, 1)
 
     # Outline nest
-    pygame.draw.circle(screen, (255, 120, 100), (nx, ny), NEST_RADIUS, 3)  # highlight rim
+    pygame.draw.circle(surface, (255, 120, 100), (nx, ny), NEST_RADIUS, 3)  # highlight rim
 
     # ── Queen gene readout (bottom-right) ─────────────────────────────────────
     gfont = pygame.font.SysFont("consolas", 14)
@@ -120,26 +125,26 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
     ]
     for i, text in enumerate(reversed(gene_lines)):
         s = gfont.render(text, True, COL_QUEEN)
-        screen.blit(s, (WINDOW_WIDTH - s.get_width() - 10,
-                        WINDOW_HEIGHT - 14 - i * 18))
+        surface.blit(s, (width - s.get_width() - 10,
+                        height - 14 - i * 18))
 
     # ── HUD / Stats (top-left) ────────────────────────────────────────────────
     font = pygame.font.SysFont("consolas", 16)
     stats = [
         f"Frame:   {sim.frame}",
         f"FPS:     {clock.get_fps():.1f}",
-        f"Workers: {len(sim.ants)}",
+        f"Workers: {len(sim.ants)} ({len(sim.ants_in_nest)} in nest)",
         f"Food:    {sim.food_collected}",
         f"Storage: {sim.food_storage}",
         f"Royal Jelly: {sim.royal_jelly}"
     ]
     for i, text in enumerate(stats):
         s = font.render(text, True, (255, 255, 255))
-        screen.blit(s, (10, 10 + i * 20))
+        surface.blit(s, (10, 10 + i * 20))
 
     if sim.emergency_queen_mode:
         emergency_text = f"EMERGENCY: Raising new Queen..."
-        screen.blit(font.render(emergency_text, True, (255, 0, 0)), (10, 10 + len(stats) * 20))
+        surface.blit(font.render(emergency_text, True, (255, 0, 0)), (10, 10 + len(stats) * 20))
 
     # ── State legend (bottom-left) ────────────────────────────────────────────
     lfont = pygame.font.SysFont("consolas", 14)
@@ -151,10 +156,7 @@ def render(screen: pygame.Surface, sim, clock: pygame.time.Clock):
     ]
     for i, (label, col) in enumerate(legend):
         s = lfont.render(f"\u25a0 {label}", True, col)
-        screen.blit(s, (10, WINDOW_HEIGHT - 20 - i * 18))
-
-    pygame.display.flip()
-
+        surface.blit(s, (10, height - 20 - i * 18))
 
 # math needed for Queen pulse — import at module level
 import math

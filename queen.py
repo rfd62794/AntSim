@@ -33,6 +33,8 @@ class Queen:
         self.generation  = 0    # incremented each time a new worker is born
         self.workers_born = 0
         self.death_chance_per_gen = QUEEN_DEATH_CHANCE_PER_GEN
+        self.in_nest = True      # Queen is always in the nest
+        self.chamber_id = 'queen'
 
     # ──────────────────────────────────────────────────────────────────────────
 

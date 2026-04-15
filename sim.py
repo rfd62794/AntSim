@@ -79,6 +79,11 @@ class Simulation:
         self.emergency_queen_mode = False
         self.emergency_queen_candidate = None
 
+        # ── Nest Structure / View ───────────────────────────────────────────
+        self.nest = NestStructure(viewport_width=800, viewport_height=200)
+        self.nest_renderer = NestRenderer(800, 200)
+        self.ants_in_nest = []  # Ants currently in nest (taken out of self.ants)
+
     # ──────────────────────────────────────────────────────────────────────────
     # Public
     # ──────────────────────────────────────────────────────────────────────────
