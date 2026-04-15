@@ -58,9 +58,10 @@ class Simulation:
         # 3. Collisions: nest drop-off
         self._check_nest_dropoff()
 
-        # 4. Emit pheromone for every living ant
+        # 4. Emit pheromone — only food-carrying ants lay trail (canonical ACO:
+        #    return-trip trail guides outbound ants toward food)
         for ant in self.ants:
-            if ant.is_alive():
+            if ant.is_alive() and ant.carrying_food:
                 ant.emit_pheromone(self.pheromone_grid)
 
         # 5. Decay pheromone grid
