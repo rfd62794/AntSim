@@ -8,6 +8,7 @@ from constants import (
     FOOD_COUNT, FOOD_RADIUS, NEST_POS, NEST_RADIUS, FOOD_START_AMOUNT,
     ANT_ENERGY_MAX,
     QUEEN_REPRO_COST, QUEEN_REPRO_INTERVAL,
+    FOOD_TO_ROYAL_JELLY_RATIO, EMERGENCY_QUEEN_DEV_TIME,
     PHEROMONE_GRID_WIDTH, PHEROMONE_GRID_HEIGHT,
     PHEROMONE_DECAY, PHEROMONE_THRESHOLD,
     WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -66,11 +67,15 @@ class Simulation:
         self.food_storage   = 0   # food units banked in the nest (fuels reproduction)
         self.frame          = 0
 
-        # Spawn initial worker cohort — inherit Queen's base genes directly
         self.ants = [
             Ant(*NEST_POS, genes=dict(self.queen.genes), queen_id=id(self.queen))
             for _ in range(ANT_COUNT)
         ]
+
+        # ── State / Meta ──────────────────────────────────────────────────────
+        self.royal_jelly = 0
+        self.emergency_queen_mode = False
+        self.emergency_queen_candidate = None
 
     # ──────────────────────────────────────────────────────────────────────────
     # Public
@@ -90,9 +95,9 @@ class Simulation:
         # 3. Collisions: nest drop-off (also increments food_storage)
         self._check_nest_dropoff()
 
-        # 4. Emit pheromone — only food-carrying ants lay trail (canonical ACO)
+        # 4. Emit pheromone
         for ant in self.ants:
-            if ant.is_alive() and ant.carrying_food:
+            if ant.is_alive():
                 ant.emit_pheromone(self.pheromone_grid)
 
         # 5. Decay pheromone grid
@@ -101,13 +106,21 @@ class Simulation:
         # 6. Remove dead ants
         self.ants = [a for a in self.ants if a.is_alive()]
 
-        # 7. Queen reproduction (checked every QUEEN_REPRO_INTERVAL frames)
-        if self.queen.alive and self.frame % QUEEN_REPRO_INTERVAL == 0:
-            if len(self.ants) < ANT_COUNT_MAX:
-                new_worker = self.queen.try_reproduce(self.food_storage)
-                if new_worker is not None:
-                    self.ants.append(new_worker)
-                    self.food_storage -= QUEEN_REPRO_COST
+        # 7. Queen Reproduction / Mortality
+        if self.queen.alive:
+            if self.frame > 0 and self.frame % 60 == 0:
+                if self.queen.check_mortality():
+                    # Queen just died
+                    self.trigger_emergency_queen_rearing()
+
+            if self.queen.alive and self.frame % QUEEN_REPRO_INTERVAL == 0:
+                if len(self.ants) < ANT_COUNT_MAX:
+                    new_worker = self.queen.try_reproduce(self.food_storage)
+                    if new_worker is not None:
+                        self.ants.append(new_worker)
+                        self.food_storage -= QUEEN_REPRO_COST
+        else:
+            self.update_emergency_queen()
 
         # 8. Respawn food
         self.check_food_respawn()
@@ -158,6 +171,63 @@ class Simulation:
                 # energy reset is no longer an instant full heal—it regens via update when holding food
                 self.food_collected += 1
                 self.food_storage   += 1             # bank food for Queen
+
+                # If we are in emergency, converting food to jelly automatically
+                if self.emergency_queen_mode and self.food_storage >= FOOD_TO_ROYAL_JELLY_RATIO:
+                    self.food_storage -= FOOD_TO_ROYAL_JELLY_RATIO
+                    self.royal_jelly += 1
+
+    def trigger_emergency_queen_rearing(self):
+        """Queen died, convert food to royal jelly to raise emergency candidate."""
+        self.emergency_queen_mode = True
+        
+        while self.food_storage >= FOOD_TO_ROYAL_JELLY_RATIO:
+            self.food_storage -= FOOD_TO_ROYAL_JELLY_RATIO
+            self.royal_jelly += 1
+
+    def update_emergency_queen(self):
+        """Develop the emergency queen over time, consuming jelly."""
+        if not self.emergency_queen_mode:
+            return
+            
+        if self.emergency_queen_candidate is None:
+            self.emergency_queen_candidate = {
+                'start_frame': self.frame,
+                'fed': False
+            }
+            
+        if self.royal_jelly > 0:
+            self.emergency_queen_candidate['fed'] = True
+            self.royal_jelly -= 1
+            
+        elapsed = self.frame - self.emergency_queen_candidate['start_frame']
+        if elapsed >= EMERGENCY_QUEEN_DEV_TIME:
+            if self.emergency_queen_candidate['fed']:
+                self.spawn_new_queen()
+                self.emergency_queen_mode = False
+                self.emergency_queen_candidate = None
+
+    def spawn_new_queen(self):
+        """Yield a new Queen built from average genetics of existing worker ants."""
+        if len(self.ants) > 0:
+            avg_genes = {
+                'sensitivity': sum(ant.genes['sensitivity'] for ant in self.ants) / len(self.ants),
+                'speed': sum(ant.genes['speed'] for ant in self.ants) / len(self.ants),
+                'boldness': sum(ant.genes['boldness'] for ant in self.ants) / len(self.ants),
+                'lifespan': sum(ant.genes['lifespan'] for ant in self.ants) / len(self.ants),
+                'energy_efficiency': sum(ant.genes['energy_efficiency'] for ant in self.ants) / len(self.ants)
+            }
+            for gene in avg_genes:
+                if random.random() < 0.1: # 10% mutation
+                    avg_genes[gene] *= random.uniform(0.95, 1.05)
+                # Keep within bounds from constants if we had access, but rough 0.5-1.5 clamp:
+                avg_genes[gene] = max(0.5, min(1.5, avg_genes[gene]))
+        else:
+            avg_genes = self.queen.genes.copy()
+            
+        old_generation = self.queen.generation
+        self.queen = Queen(self.nest_pos[0], self.nest_pos[1], genes=avg_genes)
+        self.queen.generation = old_generation + 1
 
     def _decay_pheromone(self):
         """Multiply every cell by decay factor; zero out cells below threshold."""

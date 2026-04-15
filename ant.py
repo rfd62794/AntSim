@@ -4,7 +4,7 @@ import random
 from constants import (
     ANT_SPEED, ANT_ENERGY_MAX, ANT_ENERGY_DRAIN, ANT_ENERGY_GAIN,
     ANT_VISION_RANGE, PHEROMONE_DETECT_RANGE,
-    PHEROMONE_EMIT, PHEROMONE_THRESHOLD,
+    PHEROMONE_EMIT_STRONG, PHEROMONE_EMIT_WEAK, PHEROMONE_THRESHOLD,
     WINDOW_WIDTH, WINDOW_HEIGHT,
     WANDER_TURN_MIN, WANDER_TURN_MAX,
     NEST_RADIUS, FOOD_RADIUS,
@@ -77,16 +77,28 @@ class Ant:
             # Low energy: prioritize return to nest
             self.state = "return_nest"
         else:
+            # We sample from the location locally via grid lookup, which is abstracted in _sample_pheromone.
             phero_dir = self._sample_pheromone(pheromone_grid)
             food_dir  = self._nearest_food_dir(food_sources)
 
             if phero_dir is not None:
-                # Boldness: high-boldness ants may ignore trails and keep exploring
-                if self.energy > self.max_energy * 0.6 and random.random() < self.genes['boldness']:
-                    # Bold ant wanders even if there's pheromone nearby (if energy permits)
-                    self.state = "wander"
-                else:
+                # Use current position cell strength
+                my_gx = int(self.x / CELL_W)
+                my_gy = int(self.y / CELL_H)
+                my_gx = max(0, min(PHEROMONE_GRID_WIDTH  - 1, my_gx))
+                my_gy = max(0, min(PHEROMONE_GRID_HEIGHT - 1, my_gy))
+                phero_strength = pheromone_grid[my_gy][my_gx]
+
+                # HIGH sensitivity ants follow trails more strictly
+                if phero_strength > 20 * self.genes['sensitivity']:
                     self.state = "follow_pheromone"
+                elif phero_strength > 5:
+                    if random.random() < self.genes['sensitivity'] and random.random() >= self.genes['boldness']:
+                        self.state = "follow_pheromone"
+                    else:
+                        self.state = "wander"
+                else:
+                    self.state = "wander"
             elif food_dir is not None:
                 self.state = "seek_food"
             else:
@@ -120,11 +132,16 @@ class Ant:
 
     def emit_pheromone(self, pheromone_grid: list):
         """Add pheromone at the ant's current grid cell."""
+        if self.carrying_food and self.state == "return_nest":
+            emit_str = PHEROMONE_EMIT_STRONG
+        else:
+            emit_str = PHEROMONE_EMIT_WEAK
+
         gx = int(self.x / CELL_W)
         gy = int(self.y / CELL_H)
         gx = max(0, min(PHEROMONE_GRID_WIDTH  - 1, gx))
         gy = max(0, min(PHEROMONE_GRID_HEIGHT - 1, gy))
-        pheromone_grid[gy][gx] = min(255, pheromone_grid[gy][gx] + PHEROMONE_EMIT)
+        pheromone_grid[gy][gx] = min(255, pheromone_grid[gy][gx] + emit_str)
 
     def is_alive(self) -> bool:
         return self.energy > 0

@@ -19,6 +19,9 @@ FOOD_START_AMOUNT = 10    # Finite supply per node
 QUEEN_ENERGY_MAX      = 200.0
 QUEEN_REPRO_COST      = 10    # food_storage units consumed per new worker
 QUEEN_REPRO_INTERVAL  = 60    # frames between reproduction checks (1 s at 60 FPS)
+QUEEN_DEATH_CHANCE_PER_GEN = 0.05  # 5% chance of dying per generation
+FOOD_TO_ROYAL_JELLY_RATIO = 30     # 30 food equates to 1 royal jelly increment
+EMERGENCY_QUEEN_DEV_TIME = 240     # amount of frames it takes to grow a new Queen
 GENE_MUTATION_CHANCE  = 0.05  # 5 % per gene per birth
 GENE_MUTATION_RANGE   = 0.05  # ±5 % shift when mutation fires
 GENE_MIN              = 0.5
@@ -35,7 +38,8 @@ WANDER_TURN_MAX    = 40
 
 # ── Pheromone ─────────────────────────────────────────────────────────────────
 PHEROMONE_DETECT_RANGE  = 40
-PHEROMONE_EMIT          = 50
+PHEROMONE_EMIT_STRONG   = 100  # emitted when bringing food home
+PHEROMONE_EMIT_WEAK     = 30   # emitted softly while wandering
 PHEROMONE_GRID_WIDTH    = 80
 PHEROMONE_GRID_HEIGHT   = 60
 PHEROMONE_DECAY         = 0.95
