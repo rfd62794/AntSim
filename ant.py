@@ -81,7 +81,9 @@ class Ant:
             phero_dir = self._sample_pheromone(pheromone_grid)
             food_dir  = self._nearest_food_dir(food_sources)
 
-            if phero_dir is not None:
+            if food_dir is not None:
+                self.state = "seek_food"
+            elif phero_dir is not None:
                 # Use current position cell strength
                 my_gx = int(self.x / CELL_W)
                 my_gy = int(self.y / CELL_H)
@@ -99,8 +101,6 @@ class Ant:
                         self.state = "wander"
                 else:
                     self.state = "wander"
-            elif food_dir is not None:
-                self.state = "seek_food"
             else:
                 self.state = "wander"
 
