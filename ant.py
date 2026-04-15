@@ -213,8 +213,10 @@ class Ant:
         best_dist = self.vision_range
         best_dx   = None
         best_dy   = None
-        for (fx, fy, _amount) in food_sources:
-            dx, dy = fx - self.x, fy - self.y
+        for node in food_sources:
+            if node.is_depleted():
+                continue
+            dx, dy = node.x - self.x, node.y - self.y
             dist = math.hypot(dx, dy)
             if dist < best_dist:
                 best_dist = dist
