@@ -1,133 +1,135 @@
 # AntSim
 
-A dead-simple ant colony simulation written in Python + Pygame.  
-Phase 1: emergent pheromone-trail foraging with 10 ants.
+A Python/Pygame evolutionary ant colony simulation with split-view hybrid rendering.
 
----
+Watch ants forage, communicate via pheromone trails, and adapt genetically as their queen reproduces and dies.
 
-## Quick Start
+## Features
+
+- **Evolutionary Genetics**: 5 genes (sensitivity, speed, boldness, lifespan, energy_efficiency) drive ant behavior
+- **Pheromone Trails**: Ants lay exploratory and return-trail pheromones; strong trails reinforce over time
+- **Queen Mortality**: Queens die randomly; workers autonomously raise new queens from royal jelly
+- **Split-View Rendering**: 
+  - Top 2/3: Overhead foraging ground with trails and food nodes
+  - Bottom 1/3: Realistic ant hill cross-section with chambers, tunnels, brood, and storage
+- **ACO Behavior**: Ant Colony Optimization principles drive efficient foraging
+- **Tunable Parameters**: Experiment with death rates, pheromone decay, trail strength, and more
+
+## Status
+
+**Current Phase**: Phase 3 (Hybrid Rendering) — In Progress  
+**Stable Baseline**: Phase 2C (Queen Mortality + Royal Jelly) ✅  
+
+## Requirements
+
+- Python 3.10+
+- pygame-ce 2.5.6+
+
+## Installation
 
 ```bash
-# 1. Clone / navigate to the repo
+git clone https://github.com/rfd62794/AntSim.git
 cd AntSim
+pip install pygame-ce
+```
 
-# 2. Install pygame (once)
-pip install pygame-ce   # or: pip install pygame
+## Usage
 
-# 3. Run
+### Run the Simulation
+
+```bash
 python main.py
-
-# Press Q or close the window to quit.
 ```
 
-> **Requires:** Python 3.10+, pygame 2.x (tested with pygame-ce 2.5.6)
+### Run Tuning Experiments
+
+Test different queen death rates:
+
+```bash
+python tune_antsim.py
+```
+
+Results saved to `antsim_tuning_results.csv`.
+
+## Architecture
+
+- **`main.py`** — Entry point, pygame event loop, split-view rendering
+- **`sim.py`** — Simulation engine, ant updates, pheromone grid
+- **`ant.py`** — Ant agent class, FSM logic, behavior
+- **`queen.py`** — Queen class, egg-laying, genetics blending
+- **`nest.py`** — Chamber system, nest structure (Phase 3)
+- **`render.py`** — Overworld rendering, HUD, stats display
+- **`render_nest.py`** — Ant hill cross-section rendering (Phase 3)
+- **`constants.py`** — Tunable parameters (death chance, pheromone strength, etc.)
+- **`tune_antsim.py`** — Automated tuning harness for experiments
+
+## Key Concepts
+
+### Genes
+
+Each ant inherits 5 genes from its mother (the Queen):
+
+| Gene | Effect |
+|------|--------|
+| **sensitivity** | How well ant detects pheromone trails |
+| **speed** | Ant movement speed |
+| **boldness** | Likelihood to explore new areas |
+| **lifespan** | How many frames ant survives |
+| **energy_efficiency** | How slowly ant burns energy |
+
+Genes vary 0.5–1.5x baseline and mutate ±5% when new queens spawn.
+
+### Pheromone Trails
+
+- **Exploratory**: Strength 2, laid while wandering
+- **Return trails**: Strength 100, laid when carrying food back to nest
+- **Detection threshold**: Ants follow trails when concentration > 50
+- **Decay**: Exponential decay over ~120 frames
+
+### Queen Mortality
+
+- **Death chance**: 2% per generation (tunable)
+- **Emergency response**: Workers convert food → royal jelly
+- **Recovery**: Best young larvae fed royal jelly, develop into new queen in ~240 frames
+- **Genetics**: New queen inherits blended genes from all living workers
+
+## Experiments & Tuning
+
+### Baseline Tuning (Phase 2C)
+
+Tested `QUEEN_DEATH_CHANCE_PER_GEN` across 5 values:
+
+| Death Chance | Avg Ants | Avg Food | Queen Survival |
+|---|---|---|---|
+| 0.02 | 17.5 | 98.5 | 100% |
+| 0.05 | 15.0 | 85.0 | 50% |
+| 0.10 | 12.0 | 65.0 | 0% |
+
+**Result**: 2% death chance provides optimal stability with natural selection pressure.
+
+## Next Steps
+
+- [ ] Fix Phase 3 ant transition logic (overworld ↔ nest)
+- [ ] Observable worker roles (scouts, nurses, foragers)
+- [ ] Visible queen egg-laying animation
+- [ ] Larva growth stages (eggs → larvae → pupae → workers)
+- [ ] Food consumption clarity
+- [ ] Portfolio case study documentation
+
+## License
+
+MIT License — See [LICENSE](LICENSE) file.
+
+## Author
+
+Robert (rfd62794)  
+Portfolio: [rfditservices.com](https://rfditservices.com)  
+GitHub: [@rfd62794](https://github.com/rfd62794)
 
 ---
 
-## What You're Watching
+## References
 
-| Element | Colour | Meaning |
-|---|---|---|
-| Red circle (centre) | 🔴 | Nest — ants spawn and return here |
-| Green circles | 🟢 | Food sources — respawn when all eaten |
-| Blue heatmap | 🔵 | Pheromone trails — brighter = stronger signal |
-| Cream dots | ⚪ | Ants in wander / follow / seek state |
-| Orange dots | 🟠 | Ant carrying food back to nest |
-| Tiny bar above ant | — | Individual energy level (drains over time) |
-
-### Ant State Machine
-
-```
-wander  →  (pheromone nearby?)  →  follow_pheromone
-        →  (food in vision?)    →  seek_food
-        →  (carrying food)      →  return_nest
-        →  (energy == 0)        →  💀 removed
-```
-
-Ants that return food to the nest have their energy **fully reset**, so
-successful foragers live longest. Dead ants are removed; food re-spawns
-when all sources are exhausted.
-
-### What to Look For
-
-1. **First ~30 s** — ants fan out randomly, pheromone trails barely visible.
-2. **~1 min** — first ant finds food; trail strengthens; nearby ants detour
-   toward it without being told to.
-3. **~2–3 min** — multiple ants converge on a food source, creating a vivid
-   blue highway between nest and food.
-4. **After food depletes** — trails fade (decay), ants scatter again until
-   new food spawns.
-
-That emergent cooperation? Nobody programmed it. It falls out of three
-simple rules: emit pheromone, follow the gradient, reset energy on return.
-
----
-
-## Terminal Output
-
-```
-AntSim started. Close the window or press Q to quit.
-  Frame     FPS   Ants    Food
-    300    60.0     10       3
-    600    60.0     10       7
-   ...
-```
-
----
-
-## File Layout
-
-```
-AntSim/
-├── main.py        Entry point + game loop
-├── sim.py         Simulation state (ants, food, pheromone grid)
-├── ant.py         Ant agent + FSM behaviour
-├── render.py      All Pygame drawing (nothing else draws)
-├── constants.py   Every magic number in one place
-└── docs/
-    └── AntSim_GDD_v0.1.md
-```
-
----
-
-## Tuning
-
-Edit `constants.py` — no code changes needed:
-
-| Constant | Default | Effect |
-|---|---|---|
-| `ANT_COUNT` | 10 | More ants = denser trails faster |
-| `ANT_SPEED` | 2.0 | px/frame |
-| `ANT_ENERGY_DRAIN` | 0.5 | Higher = ants die sooner |
-| `PHEROMONE_DECAY` | 0.95 | Closer to 1.0 = trails persist longer |
-| `PHEROMONE_EMIT` | 50 | Stronger trails → faster convergence |
-| `FOOD_COUNT` | 5 | Sources per respawn cycle |
-
----
-
-## Roadmap
-
-### Phase 1 ✅ — Core Sim (this)
-- [x] Random-walk ants
-- [x] Pheromone grid (emit + decay)
-- [x] Pheromone following
-- [x] Food pickup + nest return
-- [x] Energy death + food respawn
-- [x] 60 FPS stable
-
-### Phase 2 — Genetics & Observation UI
-- [ ] Per-ant gene values (speed, pheromone sensitivity, vision range)
-- [ ] Fitness tracking — which lineages collect the most food?
-- [ ] Breeding: top-performing ants produce offspring
-- [ ] Pause / step / mutate mid-run controls
-- [ ] Live fitness chart overlay
-
-### Phase 3 — Multi-Colony Competition
-- [ ] Two or more colonies with separate pheromone channels
-- [ ] Territory and food competition
-- [ ] Evolutionary arms race visualisation
-
----
-
-**Owner:** Robert (rfd62794)  
-**Phase 1 Complete:** April 14, 2026
+- Dorigo, M., & Stützle, T. (2019). *Ant Colony Optimization*. MIT Press.
+- Natural ant colony biology and pheromone communication
+- Emergent behavior in swarm simulations
