@@ -44,6 +44,9 @@ def main():
         if sim.frame == 3600:
             pygame.image.save(screen, "screenshot_60s.png")
 
+        if sim.frame > 3605:
+            running = False
+
     pygame.quit()
     print(f"\nSimulation ended at frame {sim.frame}.")
     print(f"Total food collected : {sim.food_collected}")
